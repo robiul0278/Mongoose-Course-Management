@@ -7,7 +7,7 @@ export interface TRegister {
     username: string;
     email: string;
     password: string;
-    passwordChangedAt: Date 
+    passwordChangedAt: Date; 
     role: 'user' | 'admin';
   }
 

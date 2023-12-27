@@ -4,6 +4,8 @@ import { AuthModel } from './auth.model'
 import jwt from 'jsonwebtoken'
 import { JwtPayload } from 'jsonwebtoken';
 import bcrypt from 'bcrypt'
+import AppError from '../../errors/AppError';
+import httpStatus from 'http-status';
 
 const register = async (userData: TRegister) => {
   const result = await AuthModel.create(userData)
@@ -25,6 +27,7 @@ const login = async (payload: TLogin) => {
 
   // create access token
   const jwtPayload = {
+    _id: user?._id,
     role: user?.role,
     email: user?.email,
   }
@@ -61,7 +64,7 @@ const changePassword = async (
     throw new Error('Invalid token')
   }
 
-  console.log(user.passwordChangedAt, 'passwordChangedAt')
+  // console.log(user.passwordChangedAt, 'passwordChangedAt')
   //token issued before password changed
   //after the change of the change of the password, we should not allow the user to use the old token
   if (user.passwordChangedAt && iat < user.passwordChangedAt.getTime() / 1000) {
@@ -74,7 +77,7 @@ const changePassword = async (
     user.password,
   )
 
-  if (!isCorrectPassword) {
+  if (isCorrectPassword) {
     throw new Error('Invalid credentials boss')
   }
 
@@ -93,8 +96,48 @@ const changePassword = async (
   return updatedUser
 }
 
+
+const changePasswords = async (
+  userData: JwtPayload,
+  payload: { currentPassword: string; newPassword: string },
+) => {
+  // checking if the user is exist
+  const user = await AuthModel.findOne(userData._id);
+
+  if (!user) {
+    throw new AppError(httpStatus.NOT_FOUND, 'This user is not found !');
+  }
+
+  //checking if the password is correct
+
+  if (!(await AuthModel.isPasswordMatched(payload.currentPassword, user?.password)))
+    throw new AppError(httpStatus.FORBIDDEN, 'Password do not matched');
+
+  //hash new password
+  const newHashedPassword = await bcrypt.hash(
+    payload.newPassword,
+    Number(config.bcrypt_salt_rounds),
+  );
+
+  await AuthModel.findOneAndUpdate(
+    {
+      id: userData.userId,
+      role: userData.role,
+    },
+    {
+      password: newHashedPassword,
+      needsPasswordChange: false,
+      passwordChangedAt: new Date(),
+    },
+  );
+
+  return null;
+};
+
+
 export const authServices = {
   register,
   login,
   changePassword,
+  changePasswords
 }

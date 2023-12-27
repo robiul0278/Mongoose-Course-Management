@@ -31,7 +31,7 @@ const login = catchAsync(async (req, res) => {
 
 const changePassword = catchAsync(async (req, res)=>{
   const decodedToken = req.user
-  const result = await authServices.changePassword(decodedToken, req.body)
+  const result = await authServices.changePasswords(decodedToken, req.body)
 
 
   sendResponse(res, {
